@@ -1,0 +1,15 @@
+language: cpp
+
+sudo: required
+dist: trusty
+
+addons:
+  apt:
+    sources:
+      - llvm-toolchain-trusty-5.0
+    packages:
+      - clang-format-5.0
+
+script:
+  - env | grep "^TRAVIS_"
+  - git clang-format-5.0 ${TRAVIS_COMMIT_RANGE%%.*} ${TRAVIS_COMMIT_RANGE##*.}
