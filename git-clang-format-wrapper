@@ -5,8 +5,11 @@
 #     git-clang-format-wrapper git -c color.diff=always clang-format --diff <args...>
 
 set -o errexit
+set -o pipefail
 
 temp=$(mktemp --tmpdir git-clang-format-diff.XXXXXX)
 trap 'rm "$temp"' EXIT
 "$@" | tee "$temp"
-[[ -s "$temp" ]] && exit 1
+if [[ -s "$temp" ]]; then
+    exit 1
+fi
