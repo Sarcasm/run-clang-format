@@ -12,4 +12,7 @@ addons:
 
 script:
   - env | grep "^TRAVIS_"
-  - git clang-format-5.0 ${TRAVIS_COMMIT_RANGE%%.*} ${TRAVIS_COMMIT_RANGE##*.}
+  - |
+    git-clang-format-wrapper git -c color.diff=always \
+        clang-format-5.0 --diff ${TRAVIS_COMMIT_RANGE%%.*} \
+                                ${TRAVIS_COMMIT_RANGE##*.}

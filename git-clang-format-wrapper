@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Wrapper to work around `git-clang-format --diff's lack of sensible exit code.
+# Run like this:
+#     git-clang-format-wrapper git -c color.diff=always clang-format --diff <args...>
+
+set -o errexit
+
+temp=$(mktemp --tmpdir git-clang-format-diff.XXXXXX)
+trap 'rm "$temp"' EXIT
+"$@" | tee "$temp"
+[[ -s "$temp" ]] && exit 1
