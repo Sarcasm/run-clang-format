@@ -12,4 +12,4 @@ addons:
 
 script:
   - env | grep "^TRAVIS_"
-  - ./clang-format-travis -r .
+  - ./clang-format-ci -r .
