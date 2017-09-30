@@ -32,7 +32,7 @@ def list_files(files, recursive=False, extensions=None):
     return out
 
 
-def diff(file, original, reformatted):
+def make_diff(file, original, reformatted):
     return list(
         difflib.diff_bytes(
             difflib.unified_diff,
@@ -53,7 +53,40 @@ def run_clang_format_diff(param_pack):
         return None
     with open(file, "rb") as f:
         original = f.readlines()
-    return diff(file, original, reformatted)
+    return make_diff(file, original, reformatted)
+
+
+def colorize(diff_lines):
+    def bold(s):
+        return b'\x1b[1m' + s + b'\x1b[0m'
+
+    def cyan(s):
+        return b'\x1b[36m' + s + b'\x1b[0m'
+
+    def green(s):
+        return b'\x1b[32m' + s + b'\x1b[0m'
+
+    def red(s):
+        return b'\x1b[31m' + s + b'\x1b[0m'
+
+    for line in diff_lines:
+        if line[:4] in [b'--- ', b'+++ ']:
+            yield bold(line)
+        elif line.startswith(b'@@ '):
+            yield cyan(line)
+        elif line.startswith(b'+'):
+            yield green(line)
+        elif line.startswith(b'-'):
+            yield red(line)
+        else:
+            yield line
+
+
+def print_diff(diff_lines, use_color):
+    if use_color:
+        diff_lines = colorize(diff_lines)
+    for line in diff_lines:
+        sys.stdout.write(line.decode('utf-8'))
 
 
 def main():
@@ -80,6 +113,11 @@ def main():
         default=0,
         help='run N clang-format jobs in parallel'
         ' (default number of cpus + 1)')
+    parser.add_argument(
+        '--color',
+        default='auto',
+        choices=['auto', 'always', 'never'],
+        help='show colored diff (default: auto)')
 
     args = parser.parse_args()
 
@@ -93,6 +131,7 @@ def main():
 
     pool = multiprocessing.Pool(max_task)
 
+    colored = None
     retcode = 0
     files = list_files(
         args.files,
@@ -102,8 +141,12 @@ def main():
                           zip([args] * len(files), files)):
         if diff == []:
             continue
-        for line in (diff or []):
-            sys.stdout.write(line.decode('utf-8'))
+        if colored is None:
+            if args.color == 'always':
+                colored = True
+            elif args.color == 'auto':
+                colored = sys.stdout.isatty()
+        print_diff(diff or [], use_color=colored)
         retcode = 1
 
     sys.exit(retcode)
