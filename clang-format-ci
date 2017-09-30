@@ -22,6 +22,12 @@ from functools import partial
 DEFAULT_EXTENSIONS = 'c,h,C,H,cpp,hpp,cc,hh,c++,h++,cxx,hxx'
 
 
+class ExitStatus:
+    SUCCESS = 0
+    DIFF = 1
+    TROUBLE = 2
+
+
 def list_files(files, recursive=False, extensions=None):
     out = []
     for file in files:
@@ -47,27 +53,36 @@ def make_diff(file, original, reformatted):
             n=3))
 
 
+class DiffError(Exception):
+    def __init__(self, message, errs=None):
+        super(DiffError, self).__init__(message)
+        self.errs = errs or []
+
+
 def run_clang_format_diff(args, file):
     try:
         with open(file, "rb") as f:
             original = f.readlines()
     except IOError as exc:
-        with lock:
-            print('error: {}'.format(exc), file=sys.stderr)
-        return None
+        raise DiffError(str(exc))
     invocation = [args.clang_format_executable, file]
-    proc = subprocess.Popen(
-        invocation, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    errors = proc.stderr.readlines()
-    if errors:
-        with lock:
-            for line in errors:
-                sys.stderr.write(line.decode('utf-8'))
-    reformatted = proc.stdout.readlines()
+    try:
+        proc = subprocess.Popen(
+            invocation, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except OSError as exc:
+        raise DiffError(str(exc))
+    # hopefully the stderr pipe won't get full and block the process
+    outs = proc.stdout.readlines()
+    errs = proc.stderr.readlines()
     proc.wait()
     if proc.returncode:
-        return None
-    return make_diff(file, original, reformatted)
+        raise DiffError("clang-format exited with status {}: '{}'\n".format(
+            proc.returncode, file), errs)
+    return make_diff(file, original, outs), errs
+
+
+def bold_red(s):
+    return '\x1b[1m\x1b[31m' + s + '\x1b[0m'
 
 
 def colorize(diff_lines):
@@ -101,11 +116,6 @@ def print_diff(diff_lines, use_color):
         diff_lines = colorize(diff_lines)
     for line in diff_lines:
         sys.stdout.write(line.decode('utf-8'))
-
-
-def worker_init(l):
-    global lock
-    lock = l
 
 
 def main():
@@ -148,28 +158,45 @@ def main():
     if max_task == 0:
         max_task = multiprocessing.cpu_count() + 1
 
-    lock = multiprocessing.Lock()
-    pool = multiprocessing.Pool(
-        max_task, initializer=worker_init, initargs=(lock, ))
+    pool = multiprocessing.Pool(max_task)
 
-    colored = None
-    retcode = 0
+    colored_stdout = False
+    colored_stderr = False
+    if args.color == 'always':
+        colored_stdout = True
+        colored_stderr = True
+    elif args.color == 'auto':
+        colored_stdout = sys.stdout.isatty()
+        colored_stderr = sys.stderr.isatty()
+
+    retcode = ExitStatus.SUCCESS
     files = list_files(
         args.files,
         recursive=args.recursive,
         extensions=args.extensions.split(','))
-    fn = partial(run_clang_format_diff, args)
-    for diff in pool.imap(fn, files):
-        if diff == []:
-            continue
-        if colored is None:
-            if args.color == 'always':
-                colored = True
-            elif args.color == 'auto':
-                colored = sys.stdout.isatty()
-        print_diff(diff or [], use_color=colored)
-        retcode = 1
-
+    it = pool.imap_unordered(partial(run_clang_format_diff, args), files)
+    while True:
+        try:
+            outs, errs = it.next()
+        except StopIteration:
+            break
+        except DiffError as e:
+            retcode = ExitStatus.TROUBLE
+            prog = sys.argv[0]
+            if colored_stderr:
+                print("{}: {} {}".format(prog, bold_red("error:"), str(e)))
+            else:
+                print("{}: error: {}".format(prog, str(e)))
+            for line in e.errs:
+                sys.stderr.write(line.decode('utf-8'))
+        else:
+            for line in errs:
+                sys.stderr.write(line)
+            if outs == []:
+                continue
+            print_diff(outs, use_color=colored_stdout)
+        if retcode == ExitStatus.SUCCESS:
+            retcode = ExitStatus.DIFF
     sys.exit(retcode)
 
 
