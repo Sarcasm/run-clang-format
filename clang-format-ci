@@ -7,6 +7,8 @@ and it returns a sensible exit code.
 
 """
 
+from __future__ import print_function
+
 import argparse
 import difflib
 import multiprocessing
@@ -14,6 +16,8 @@ import os
 import subprocess
 import signal
 import sys
+
+from functools import partial
 
 DEFAULT_EXTENSIONS = 'c,h,C,H,cpp,hpp,cc,hh,c++,h++,cxx,hxx'
 
@@ -43,16 +47,26 @@ def make_diff(file, original, reformatted):
             n=3))
 
 
-def run_clang_format_diff(param_pack):
-    args, file = param_pack
+def run_clang_format_diff(args, file):
+    try:
+        with open(file, "rb") as f:
+            original = f.readlines()
+    except IOError as exc:
+        with lock:
+            print('error: {}'.format(exc), file=sys.stderr)
+        return None
     invocation = [args.clang_format_executable, file]
-    proc = subprocess.Popen(invocation, stdout=subprocess.PIPE)
+    proc = subprocess.Popen(
+        invocation, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    errors = proc.stderr.readlines()
+    if errors:
+        with lock:
+            for line in errors:
+                sys.stderr.write(line.decode('utf-8'))
     reformatted = proc.stdout.readlines()
     proc.wait()
     if proc.returncode:
         return None
-    with open(file, "rb") as f:
-        original = f.readlines()
     return make_diff(file, original, reformatted)
 
 
@@ -87,6 +101,11 @@ def print_diff(diff_lines, use_color):
         diff_lines = colorize(diff_lines)
     for line in diff_lines:
         sys.stdout.write(line.decode('utf-8'))
+
+
+def worker_init(l):
+    global lock
+    lock = l
 
 
 def main():
@@ -129,7 +148,9 @@ def main():
     if max_task == 0:
         max_task = multiprocessing.cpu_count() + 1
 
-    pool = multiprocessing.Pool(max_task)
+    lock = multiprocessing.Lock()
+    pool = multiprocessing.Pool(
+        max_task, initializer=worker_init, initargs=(lock, ))
 
     colored = None
     retcode = 0
@@ -137,8 +158,8 @@ def main():
         args.files,
         recursive=args.recursive,
         extensions=args.extensions.split(','))
-    for diff in pool.imap(run_clang_format_diff,
-                          zip([args] * len(files), files)):
+    fn = partial(run_clang_format_diff, args)
+    for diff in pool.imap(fn, files):
         if diff == []:
             continue
         if colored is None:
