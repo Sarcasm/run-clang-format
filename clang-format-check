@@ -2,8 +2,9 @@
 """A wrapper script around clang-format, suitable for linting multiple files
 and to use for continuous integration.
 
-This is just an alternative API for the command line, it produces a diff,
-and it returns a sensible exit code.
+This is an alternative API for the clang-format command line.
+It runs over multiple files and directories in parallel.
+A diff output is produced and a sensible exit code is returned.
 
 """
 
@@ -120,15 +121,16 @@ def print_diff(diff_lines, use_color):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Run clang-format and produce diff of the output.')
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         '--clang-format-executable',
+        metavar='EXECUTABLE',
         help='path to the clang-format executable',
         default='clang-format')
     parser.add_argument(
         '--extensions',
-        help='comma separated list of file extensions',
+        help='comma separated list of file extensions (default: {})'.format(
+            DEFAULT_EXTENSIONS),
         default=DEFAULT_EXTENSIONS)
     parser.add_argument(
         '-r',
@@ -183,12 +185,12 @@ def main():
             break
         except DiffError as e:
             retcode = ExitStatus.TROUBLE
-            prog = sys.argv[0]
             error_text = 'error:'
             if colored_stderr:
                 error_text = bold_red(error_text)
             print(
-                "{}: {} {}".format(prog, error_text, str(e)), file=sys.stderr)
+                "{}: {} {}".format(parser.prog, error_text, str(e)),
+                file=sys.stderr)
             sys.stderr.writelines(e.errs)
         else:
             sys.stderr.writelines(errs)
