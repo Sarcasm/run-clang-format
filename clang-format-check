@@ -7,14 +7,15 @@ and it returns a sensible exit code.
 
 """
 
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import argparse
 import difflib
+import io
 import multiprocessing
 import os
-import subprocess
 import signal
+import subprocess
 import sys
 
 from functools import partial
@@ -44,12 +45,11 @@ def list_files(files, recursive=False, extensions=None):
 
 def make_diff(file, original, reformatted):
     return list(
-        difflib.diff_bytes(
-            difflib.unified_diff,
+        difflib.unified_diff(
             original,
             reformatted,
-            fromfile='{}\t(original)'.format(file).encode('utf-8'),
-            tofile='{}\t(reformatted)'.format(file).encode('utf-8'),
+            fromfile='{}\t(original)'.format(file),
+            tofile='{}\t(reformatted)'.format(file),
             n=3))
 
 
@@ -61,7 +61,7 @@ class DiffError(Exception):
 
 def run_clang_format_diff(args, file):
     try:
-        with open(file, "rb") as f:
+        with io.open(file, 'r', encoding='utf-8') as f:
             original = f.readlines()
     except IOError as exc:
         raise DiffError(str(exc))
@@ -71,12 +71,14 @@ def run_clang_format_diff(args, file):
             invocation, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except OSError as exc:
         raise DiffError(str(exc))
+    # is utf-8 correct?
+    # should it be something like locale.getpreferredencoding()?
     # hopefully the stderr pipe won't get full and block the process
-    outs = proc.stdout.readlines()
-    errs = proc.stderr.readlines()
+    outs = [x.decode('utf-8') for x in proc.stdout.readlines()]
+    errs = [x.decode('utf-8') for x in proc.stderr.readlines()]
     proc.wait()
     if proc.returncode:
-        raise DiffError("clang-format exited with status {}: '{}'\n".format(
+        raise DiffError("clang-format exited with status {}: '{}'".format(
             proc.returncode, file), errs)
     return make_diff(file, original, outs), errs
 
@@ -87,25 +89,25 @@ def bold_red(s):
 
 def colorize(diff_lines):
     def bold(s):
-        return b'\x1b[1m' + s + b'\x1b[0m'
+        return '\x1b[1m' + s + '\x1b[0m'
 
     def cyan(s):
-        return b'\x1b[36m' + s + b'\x1b[0m'
+        return '\x1b[36m' + s + '\x1b[0m'
 
     def green(s):
-        return b'\x1b[32m' + s + b'\x1b[0m'
+        return '\x1b[32m' + s + '\x1b[0m'
 
     def red(s):
-        return b'\x1b[31m' + s + b'\x1b[0m'
+        return '\x1b[31m' + s + '\x1b[0m'
 
     for line in diff_lines:
-        if line[:4] in [b'--- ', b'+++ ']:
+        if line[:4] in ['--- ', '+++ ']:
             yield bold(line)
-        elif line.startswith(b'@@ '):
+        elif line.startswith('@@ '):
             yield cyan(line)
-        elif line.startswith(b'+'):
+        elif line.startswith('+'):
             yield green(line)
-        elif line.startswith(b'-'):
+        elif line.startswith('-'):
             yield red(line)
         else:
             yield line
@@ -114,8 +116,7 @@ def colorize(diff_lines):
 def print_diff(diff_lines, use_color):
     if use_color:
         diff_lines = colorize(diff_lines)
-    for line in diff_lines:
-        sys.stdout.write(line.decode('utf-8'))
+    sys.stdout.writelines(diff_lines)
 
 
 def main():
@@ -183,15 +184,14 @@ def main():
         except DiffError as e:
             retcode = ExitStatus.TROUBLE
             prog = sys.argv[0]
+            error_text = 'error:'
             if colored_stderr:
-                print("{}: {} {}".format(prog, bold_red("error:"), str(e)))
-            else:
-                print("{}: error: {}".format(prog, str(e)))
-            for line in e.errs:
-                sys.stderr.write(line.decode('utf-8'))
+                error_text = bold_red(error_text)
+            print(
+                "{}: {} {}".format(prog, error_text, str(e)), file=sys.stderr)
+            sys.stderr.writelines(e.errs)
         else:
-            for line in errs:
-                sys.stderr.write(line)
+            sys.stderr.writelines(errs)
             if outs == []:
                 continue
             print_diff(outs, use_color=colored_stdout)
