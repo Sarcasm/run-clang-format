@@ -27,6 +27,12 @@ then run it recursively on directories, or specific files::
 
   ./run-clang-format.py -r src include foo.cpp
 
+It's possible to exclude paths from the recursive search::
+
+  ./run-clang-format.py -r \
+      --exclude src/third_party \
+      --exclude '*_test.cpp' \
+      src include foo.cpp
 
 Continuous integration
 ======================
