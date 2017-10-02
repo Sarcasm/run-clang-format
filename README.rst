@@ -32,3 +32,8 @@ Continuous integration
 ======================
 
 Check `.travis.yml <.travis.yml>`_.
+
+For an an example of failure in logs, click the badge (build is broken on purpose):
+
+.. image:: https://travis-ci.org/Sarcasm/run-clang-format.svg?branch=master
+    :target: https://travis-ci.org/Sarcasm/run-clang-format
