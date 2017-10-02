@@ -12,6 +12,7 @@ from __future__ import print_function, unicode_literals
 
 import argparse
 import difflib
+import fnmatch
 import io
 import multiprocessing
 import os
@@ -30,15 +31,30 @@ class ExitStatus:
     TROUBLE = 2
 
 
-def list_files(files, recursive=False, extensions=None):
+def list_files(files, recursive=False, extensions=None, exclude=None):
+    if extensions is None:
+        extensions = []
+    if exclude is None:
+        exclude = []
+
     out = []
     for file in files:
         if recursive and os.path.isdir(file):
             for dirpath, dnames, fnames in os.walk(file):
-                for f in fnames:
+                fpaths = [os.path.join(dirpath, fname) for fname in fnames]
+                for pattern in exclude:
+                    dnames[:] = [
+                        x for x in dnames
+                        if
+                        not fnmatch.fnmatch(os.path.join(dirpath, x), pattern)
+                    ]
+                    fpaths = [
+                        x for x in fpaths if not fnmatch.fnmatch(x, pattern)
+                    ]
+                for f in fpaths:
                     ext = os.path.splitext(f)[1][1:]
-                    if ext in (extensions or []):
-                        out.append(os.path.join(dirpath, f))
+                    if ext in extensions:
+                        out.append(f)
         else:
             out.append(file)
     return out
@@ -150,6 +166,14 @@ def main():
         default='auto',
         choices=['auto', 'always', 'never'],
         help='show colored diff (default: auto)')
+    parser.add_argument(
+        '-e',
+        '--exclude',
+        metavar='PATTERN',
+        action='append',
+        default=[],
+        help='exclude paths matching the given glob-like pattern(s)'
+        ' from recursive search')
 
     args = parser.parse_args()
 
@@ -176,6 +200,7 @@ def main():
     files = list_files(
         args.files,
         recursive=args.recursive,
+        exclude=args.exclude,
         extensions=args.extensions.split(','))
     it = pool.imap_unordered(partial(run_clang_format_diff, args), files)
     while True:
