@@ -12,4 +12,4 @@ addons:
       - clang-format-5.0
 
 script:
-  - ./run-clang-format -r .
+  - ./run-clang-format.py -r .

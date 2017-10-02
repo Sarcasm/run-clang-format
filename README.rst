@@ -1,7 +1,7 @@
 
-****************
-run-clang-format
-****************
+*******************
+run-clang-format.py
+*******************
 
 .. contents::
    :local:
@@ -22,10 +22,10 @@ A diff output is produced and a sensible exit code is returned.
 How to use?
 ===========
 
-Copy `run-clang-format <run-clang-format>`_ in your project,
+Copy `run-clang-format.py <run-clang-format.py>`_ in your project,
 then run it recursively on directories, or specific files::
 
-  ./run-clang-format -r src include foo.cpp
+  ./run-clang-format.py -r src include foo.cpp
 
 
 Continuous integration
