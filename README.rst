@@ -1,7 +1,9 @@
-
-*******************
-run-clang-format.py
-*******************
+=====================
+ run-clang-format.py
+=====================
+----------------------------------------------
+ Lint files and directories with clang-format
+----------------------------------------------
 
 .. contents::
    :local:
@@ -34,6 +36,7 @@ It's possible to exclude paths from the recursive search::
       --exclude '*_test.cpp' \
       src include foo.cpp
 
+
 Continuous integration
 ======================
 
@@ -43,3 +46,18 @@ For an an example of failure in logs, click the badge (build is broken on purpos
 
 .. image:: https://travis-ci.org/Sarcasm/run-clang-format.svg?branch=master
     :target: https://travis-ci.org/Sarcasm/run-clang-format
+
+
+FAQ
+===
+
+Can I check only changed files?
+-------------------------------
+
+No, and this is what this repository was initially about.
+However, once working around a few shortcommings of ``git clang-format``,
+I opted to try an alternative strategy
+which expects the whole project to be correctly formatted.
+
+It would make sense to support this feature as well,
+so that the coding style does not need to be enforced but merely suggested.
