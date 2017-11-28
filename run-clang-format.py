@@ -11,9 +11,11 @@ A diff output is produced and a sensible exit code is returned.
 from __future__ import print_function, unicode_literals
 
 import argparse
+import codecs
 import difflib
 import fnmatch
 import io
+import locale
 import multiprocessing
 import os
 import signal
@@ -88,14 +90,24 @@ def run_clang_format_diff(args, file):
     invocation = [args.clang_format_executable, file]
     try:
         proc = subprocess.Popen(
-            invocation, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            invocation,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
     except OSError as exc:
         raise DiffError(str(exc))
-    # is utf-8 correct?
-    # should it be something like locale.getpreferredencoding()?
+    proc_stdout = proc.stdout
+    proc_stderr = proc.stderr
+    if sys.version_info[0] < 3:
+        # make the pipes compatible with Python 3,
+        # reading lines should output unicode
+        encoding = locale.getpreferredencoding(False)
+        proc_stdout = codecs.getreader(encoding)(proc_stdout)
+        proc_stderr = codecs.getreader(encoding)(proc_stderr)
     # hopefully the stderr pipe won't get full and block the process
-    outs = [x.decode('utf-8') for x in proc.stdout.readlines()]
-    errs = [x.decode('utf-8') for x in proc.stderr.readlines()]
+    outs = list(proc_stdout.readlines())
+    errs = list(proc_stderr.readlines())
     proc.wait()
     if proc.returncode:
         raise DiffError("clang-format exited with status {}: '{}'".format(
@@ -183,7 +195,13 @@ def main():
     # use default signal handling, like diff return SIGINT value on ^C
     # https://bugs.python.org/issue14229#msg156446
     signal.signal(signal.SIGINT, signal.SIG_DFL)
-    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    try:
+        signal.SIGPIPE
+    except AttributeError:
+        # compatibility, SIGPIPE does not exist on Windows
+        pass
+    else:
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
     max_task = args.j
     if max_task == 0:
@@ -228,8 +246,8 @@ def main():
             print_diff(outs, use_color=colored_stdout)
         if retcode == ExitStatus.SUCCESS:
             retcode = ExitStatus.DIFF
-    sys.exit(retcode)
+    return retcode
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
