@@ -203,12 +203,6 @@ def main():
     else:
         signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
-    max_task = args.j
-    if max_task == 0:
-        max_task = multiprocessing.cpu_count() + 1
-
-    pool = multiprocessing.Pool(max_task)
-
     colored_stdout = False
     colored_stderr = False
     if args.color == 'always':
@@ -224,10 +218,25 @@ def main():
         recursive=args.recursive,
         exclude=args.exclude,
         extensions=args.extensions.split(','))
-    it = pool.imap_unordered(partial(run_clang_format_diff, args), files)
+
+    if not files:
+        return
+
+    njobs = args.j
+    if njobs == 0:
+        njobs = multiprocessing.cpu_count() + 1
+    njobs = min(len(files), njobs)
+
+    if njobs == 1:
+        # execute directly instead of in a pool,
+        # less overhead, simpler stacktraces
+        it = (run_clang_format_diff(args, file) for file in files)
+    else:
+        pool = multiprocessing.Pool(njobs)
+        it = pool.imap_unordered(partial(run_clang_format_diff, args), files)
     while True:
         try:
-            outs, errs = it.next()
+            outs, errs = next(it)
         except StopIteration:
             break
         except DiffError as e:
