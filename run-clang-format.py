@@ -21,6 +21,7 @@ import os
 import signal
 import subprocess
 import sys
+import traceback
 
 from functools import partial
 
@@ -81,6 +82,24 @@ class DiffError(Exception):
         self.errs = errs or []
 
 
+class UnexpectedError(Exception):
+    def __init__(self, message, exc=None):
+        super(UnexpectedError, self).__init__(message)
+        self.formatted_traceback = traceback.format_exc()
+        self.exc = exc
+
+
+def run_clang_format_diff_wrapper(args, file):
+    try:
+        ret = run_clang_format_diff(args, file)
+        return ret
+    except DiffError:
+        raise
+    except Exception as e:
+        raise UnexpectedError('{}: {}: {}'.format(file, e.__class__.__name__,
+                                                  e), e)
+
+
 def run_clang_format_diff(args, file):
     try:
         with io.open(file, 'r', encoding='utf-8') as f:
@@ -93,8 +112,7 @@ def run_clang_format_diff(args, file):
             invocation,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True
-        )
+            universal_newlines=True)
     except OSError as exc:
         raise DiffError(str(exc))
     proc_stdout = proc.stdout
@@ -149,6 +167,13 @@ def print_diff(diff_lines, use_color):
     if use_color:
         diff_lines = colorize(diff_lines)
     sys.stdout.writelines(diff_lines)
+
+
+def print_trouble(prog, message, use_colors):
+    error_text = 'error:'
+    if use_colors:
+        error_text = bold_red(error_text)
+    print("{}: {} {}".format(prog, error_text, message), file=sys.stderr)
 
 
 def main():
@@ -230,31 +255,38 @@ def main():
     if njobs == 1:
         # execute directly instead of in a pool,
         # less overhead, simpler stacktraces
-        it = (run_clang_format_diff(args, file) for file in files)
+        it = (run_clang_format_diff_wrapper(args, file) for file in files)
+        pool = None
     else:
         pool = multiprocessing.Pool(njobs)
-        it = pool.imap_unordered(partial(run_clang_format_diff, args), files)
+        it = pool.imap_unordered(
+            partial(run_clang_format_diff_wrapper, args), files)
     while True:
         try:
             outs, errs = next(it)
         except StopIteration:
             break
         except DiffError as e:
+            print_trouble(parser.prog, str(e), use_colors=colored_stderr)
             retcode = ExitStatus.TROUBLE
-            error_text = 'error:'
-            if colored_stderr:
-                error_text = bold_red(error_text)
-            print(
-                "{}: {} {}".format(parser.prog, error_text, str(e)),
-                file=sys.stderr)
             sys.stderr.writelines(e.errs)
+        except UnexpectedError as e:
+            print_trouble(parser.prog, str(e), use_colors=colored_stderr)
+            sys.stderr.write(e.formatted_traceback)
+            retcode = ExitStatus.TROUBLE
+            # stop at the first unexpected error,
+            # something could be very wrong,
+            # don't process all files unnecessarily
+            if pool:
+                pool.terminate()
+            break
         else:
             sys.stderr.writelines(errs)
             if outs == []:
                 continue
             print_diff(outs, use_color=colored_stdout)
-        if retcode == ExitStatus.SUCCESS:
-            retcode = ExitStatus.DIFF
+            if retcode == ExitStatus.SUCCESS:
+                retcode = ExitStatus.DIFF
     return retcode
 
 
