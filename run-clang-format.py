@@ -15,7 +15,6 @@ import codecs
 import difflib
 import fnmatch
 import io
-import locale
 import multiprocessing
 import os
 import signal
@@ -120,7 +119,7 @@ def run_clang_format_diff(args, file):
     if sys.version_info[0] < 3:
         # make the pipes compatible with Python 3,
         # reading lines should output unicode
-        encoding = locale.getpreferredencoding(False)
+        encoding = 'utf-8'
         proc_stdout = codecs.getreader(encoding)(proc_stdout)
         proc_stderr = codecs.getreader(encoding)(proc_stderr)
     # hopefully the stderr pipe won't get full and block the process
@@ -166,7 +165,10 @@ def colorize(diff_lines):
 def print_diff(diff_lines, use_color):
     if use_color:
         diff_lines = colorize(diff_lines)
-    sys.stdout.writelines(diff_lines)
+    if sys.version_info[0] < 3:
+        sys.stdout.writelines((l.encode('utf-8') for l in diff_lines))
+    else:
+        sys.stdout.writelines(diff_lines)
 
 
 def print_trouble(prog, message, use_colors):
