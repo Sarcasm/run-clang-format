@@ -61,7 +61,9 @@ def list_files(files, recursive=False, extensions=None, exclude=None):
                     if ext in extensions:
                         out.append(f)
         else:
-            out.append(file)
+            ext = os.path.splitext(file)[1][1:]
+            if ext in extensions:
+                out.append(file)
     return out
 
 
@@ -197,6 +199,11 @@ def main():
         help='run recursively over directories')
     parser.add_argument('files', metavar='file', nargs='+')
     parser.add_argument(
+        '-c', 
+        '--changed',
+        action='store_true',
+        help='only run on changed files')
+    parser.add_argument(
         '-j',
         metavar='N',
         type=int,
@@ -240,8 +247,17 @@ def main():
         colored_stderr = sys.stderr.isatty()
 
     retcode = ExitStatus.SUCCESS
+    
+    parse_files = []
+    if args.changed:
+        popen = subprocess.Popen(["git", "diff", "--name-only", "origin/master"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        for line in popen.stdout:
+            parse_files.append(line.rstrip())
+    else:
+        parse_files = args.files
+
     files = list_files(
-        args.files,
+        parse_files,
         recursive=args.recursive,
         exclude=args.exclude,
         extensions=args.extensions.split(','))
