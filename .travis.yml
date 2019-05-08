@@ -1,8 +1,5 @@
 language: cpp
 
-sudo: required
-dist: trusty
-
 addons:
   apt:
     sources:
