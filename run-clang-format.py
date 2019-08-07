@@ -98,15 +98,7 @@ def run_clang_format_diff_wrapper(args, file):
         raise UnexpectedError('{}: {}: {}'.format(file, e.__class__.__name__,
                                                   e), e)
 
-
-def run_clang_format_diff(args, file):
-    try:
-        with io.open(file, 'r', encoding='utf-8') as f:
-            original = f.readlines()
-    except IOError as exc:
-        raise DiffError(str(exc))
-    invocation = [args.clang_format_executable, file]
-
+def run_process(invocation):
     # Use of utf-8 to decode the process output.
     #
     # Hopefully, this is the correct thing to do.
@@ -150,29 +142,49 @@ def run_clang_format_diff(args, file):
     outs = list(proc_stdout.readlines())
     errs = list(proc_stderr.readlines())
     proc.wait()
-    if proc.returncode:
-        raise DiffError("clang-format exited with status {}: '{}'".format(
-            proc.returncode, file), errs)
-    return make_diff(file, original, outs), errs
 
+    if proc.returncode:
+        raise DiffError("clang-format exited with status {}: '{}'".format(proc.returncode, file), errs)
+
+    return outs, errs
+
+def run_clang_format_diff(args, file):
+    try:
+        with io.open(file, 'r', encoding='utf-8') as f:
+            original = f.readlines()
+    except IOError as exc:
+        raise DiffError(str(exc))
+
+    invocation = [args.clang_format_executable, file]
+
+    outs, errs = run_process(invocation)
+    diff = make_diff(file, original, outs)
+
+    if args.save_changes == False or diff == []:
+        return diff, errs
+
+    # If the file has a diff, apply and save by using the clang-format -i flag
+    print('{0} {1}'.format(bold('- Fixing: '), file))
+    invocation = [args.clang_format_executable, '-i', file]
+    outs, errs = run_process(invocation)
+    return outs, errs
 
 def bold_red(s):
     return '\x1b[1m\x1b[31m' + s + '\x1b[0m'
 
+def bold(s):
+    return '\x1b[1m' + s + '\x1b[0m'
+
+def cyan(s):
+    return '\x1b[36m' + s + '\x1b[0m'
+
+def green(s):
+    return '\x1b[32m' + s + '\x1b[0m'
+
+def red(s):
+    return '\x1b[31m' + s + '\x1b[0m'
 
 def colorize(diff_lines):
-    def bold(s):
-        return '\x1b[1m' + s + '\x1b[0m'
-
-    def cyan(s):
-        return '\x1b[36m' + s + '\x1b[0m'
-
-    def green(s):
-        return '\x1b[32m' + s + '\x1b[0m'
-
-    def red(s):
-        return '\x1b[31m' + s + '\x1b[0m'
-
     for line in diff_lines:
         if line[:4] in ['--- ', '+++ ']:
             yield bold(line)
@@ -184,7 +196,6 @@ def colorize(diff_lines):
             yield red(line)
         else:
             yield line
-
 
 def print_diff(diff_lines, use_color):
     if use_color:
@@ -244,6 +255,11 @@ def main():
         default=[],
         help='exclude paths matching the given glob-like pattern(s)'
         ' from recursive search')
+    parser.add_argument(
+        '-s',
+        '--save-changes',
+        action='store_true',
+        help='Apply diff to the file and save')
 
     args = parser.parse_args()
 
@@ -318,6 +334,10 @@ def main():
                 print_diff(outs, use_color=colored_stdout)
             if retcode == ExitStatus.SUCCESS:
                 retcode = ExitStatus.DIFF
+
+    if retcode == ExitStatus.SUCCESS:
+        print(green('\r\nYour code looks awesome!\r\n'))
+
     return retcode
 
 

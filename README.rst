@@ -36,6 +36,9 @@ It's possible to exclude paths from the recursive search::
       --exclude '*_test.cpp' \
       src include foo.cpp
 
+You can apply and save the diff to all processed files using the -s flag::
+
+  ./run-clang-format.py -r -s src include foo.cpp
 
 Continuous integration
 ======================
