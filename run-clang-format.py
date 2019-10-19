@@ -38,6 +38,18 @@ class ExitStatus:
     DIFF = 1
     TROUBLE = 2
 
+def get_clang_format_ignore_excludes(clang_format_file):
+    excludes = []
+    try:
+        with open(clang_format_file, 'r') as clang_ignore:
+            for pattern in clang_ignore.readlines():
+                pattern = pattern.rstrip()
+                if not pattern or pattern.startswith('#'):
+                    continue  # empty or comment
+                excludes.append(pattern)
+    except:
+        pass
+    return excludes;
 
 def list_files(files, recursive=False, extensions=None, exclude=None):
     if extensions is None:
@@ -258,6 +270,10 @@ def main():
         default=[],
         help='exclude paths matching the given glob-like pattern(s)'
         ' from recursive search')
+    parser.add_argument(
+        '--clang-format-ignore',
+        help='path to the .clang-format-ignore',
+        default='.clang-format-ignore')
 
     args = parser.parse_args()
 
@@ -298,10 +314,14 @@ def main():
         return ExitStatus.TROUBLE
 
     retcode = ExitStatus.SUCCESS
+
+    excludes = get_clang_format_ignore_excludes(args.clang_format_ignore)
+    excludes.extend(args.exclude)
+
     files = list_files(
         args.files,
         recursive=args.recursive,
-        exclude=args.exclude,
+        exclude=excludes,
         extensions=args.extensions.split(','))
 
     if not files:
