@@ -237,7 +237,8 @@ def main():
     parser.add_argument(
         '-q',
         '--quiet',
-        action='store_true')
+        action='store_true',
+        help="disable output, useful for the exit code")
     parser.add_argument(
         '-j',
         metavar='N',
