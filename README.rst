@@ -36,6 +36,15 @@ It's possible to exclude paths from the recursive search::
       --exclude '*_test.cpp' \
       src include foo.cpp
 
+These exclude rules can be put in a ``.clang-format-ignore`` file,
+which also supports comments.
+
+An example configuration is available in this repo::
+
+  $ cat .clang-format-ignore                                                                      (master)*
+  # ignore third_party code from clang-format checks
+  src/third_party/*
+
 
 Continuous integration
 ======================
