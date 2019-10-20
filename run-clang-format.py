@@ -43,7 +43,7 @@ def get_clang_format_ignore_excludes(clang_format_file):
     excludes = []
     try:
         with io.open(clang_format_file, 'r', encoding='utf-8') as clang_ignore:
-            for pattern in clang_ignore.readlines():
+            for pattern in clang_ignore:
                 pattern = pattern.rstrip()
                 if not pattern or pattern.startswith('#'):
                     continue  # empty or comment
