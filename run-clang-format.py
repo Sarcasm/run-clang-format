@@ -40,14 +40,22 @@ class ExitStatus:
     DIFF = 1
     TROUBLE = 2
 
-def get_clang_format_ignore_excludes(clang_format_file):
+def excludes_from_file(ignore_file):
     excludes = []
-    with io.open(clang_format_file, 'r', encoding='utf-8') as clang_ignore:
-        for pattern in clang_ignore:
-            pattern = pattern.rstrip()
-            if not pattern or pattern.startswith('#'):
-                continue  # empty or comment
-            excludes.append(pattern)
+    try:
+        with io.open(ignore_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.startswith('#'):
+                    # ignore comments
+                    continue
+                pattern = line.rstrip()
+                if not pattern:
+                    # allow empty lines
+                    continue
+                excludes.append(pattern)
+    except EnvironmentError as e:
+        if e.errno != errno.ENOENT:
+            raise
     return excludes;
 
 def list_files(files, recursive=False, extensions=None, exclude=None):
@@ -310,19 +318,7 @@ def main():
 
     retcode = ExitStatus.SUCCESS
 
-    excludes = []
-    try:
-        excludes = get_clang_format_ignore_excludes(DEFAULT_CLANG_FORMAT_IGNORE)
-    except EnvironmentError as e:
-        if e.errno != errno.ENOENT:
-            print_trouble(
-                parser.prog,
-                "Opening {} failed: {}".format(
-                    DEFAULT_CLANG_FORMAT_IGNORE, e
-                ),
-                use_colors=colored_stderr,)
-            return ExitStatus.TROUBLE
-        pass
+    excludes = excludes_from_file(DEFAULT_CLANG_FORMAT_IGNORE)
     excludes.extend(args.exclude)
 
     files = list_files(
