@@ -15,6 +15,7 @@ import codecs
 import difflib
 import fnmatch
 import io
+import errno
 import multiprocessing
 import os
 import signal
@@ -31,6 +32,7 @@ except ImportError:
 
 
 DEFAULT_EXTENSIONS = 'c,h,C,H,cpp,hpp,cc,hh,c++,h++,cxx,hxx'
+DEFAULT_CLANG_FORMAT_IGNORE = '.clang-format-ignore'
 
 
 class ExitStatus:
@@ -38,6 +40,23 @@ class ExitStatus:
     DIFF = 1
     TROUBLE = 2
 
+def excludes_from_file(ignore_file):
+    excludes = []
+    try:
+        with io.open(ignore_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.startswith('#'):
+                    # ignore comments
+                    continue
+                pattern = line.rstrip()
+                if not pattern:
+                    # allow empty lines
+                    continue
+                excludes.append(pattern)
+    except EnvironmentError as e:
+        if e.errno != errno.ENOENT:
+            raise
+    return excludes;
 
 def list_files(files, recursive=False, extensions=None, exclude=None):
     if extensions is None:
@@ -299,10 +318,14 @@ def main():
         return ExitStatus.TROUBLE
 
     retcode = ExitStatus.SUCCESS
+
+    excludes = excludes_from_file(DEFAULT_CLANG_FORMAT_IGNORE)
+    excludes.extend(args.exclude)
+
     files = list_files(
         args.files,
         recursive=args.recursive,
-        exclude=args.exclude,
+        exclude=excludes,
         extensions=args.extensions.split(','))
 
     if not files:
