@@ -258,21 +258,12 @@ def main():
         default=[],
         help='exclude paths matching the given glob-like pattern(s)'
         ' from recursive search')
-    # parser.add_argument(
-    #     '--files',
-    #     nargs='+',
-    #     action='append',
-    #     help='An explicit list of files to format.'
-    #     ' if this is specified, extensions and exclude patterns are ignored'
-    #     ' (only the specified files will be formatted). This option can be'
-    #     ' specified multiple times; each `--files` adds to the list of files'
-    #     ' to be formatted.')
     parser.add_argument(
         '--pass',
         nargs=argparse.REMAINDER,
         dest='passthrough',
-        help='Arguments to pass through to clang-format. This must be specified'
-        ' last.')
+        help='arguments to pass through to clang-format (this must be specified'
+        ' last)')
 
     args = parser.parse_args()
 

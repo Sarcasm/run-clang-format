@@ -37,6 +37,11 @@ It's possible to exclude paths from the recursive search::
       src include foo.cpp
 
 
+You can also pass arguments into ``clang-format``::
+
+  ./run-clang-format.py -r src \
+      --pass --fallback-style=Google
+
 Continuous integration
 ======================
 
