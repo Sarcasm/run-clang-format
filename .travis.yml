@@ -9,4 +9,4 @@ addons:
       - clang-format-5.0
 
 script:
-  - ./run-clang-format.py -r .
+  - ./run-clang-format.py -r src
