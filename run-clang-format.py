@@ -15,6 +15,7 @@ import codecs
 import difflib
 import fnmatch
 import io
+import errno
 import multiprocessing
 import os
 import signal
@@ -31,7 +32,7 @@ except ImportError:
 
 
 DEFAULT_EXTENSIONS = 'c,h,C,H,cpp,hpp,cc,hh,c++,h++,cxx,hxx'
-DEFAULT_CLANG_FORMAT_IGNORE= '.clang-format-ignore'
+DEFAULT_CLANG_FORMAT_IGNORE = '.clang-format-ignore'
 
 
 class ExitStatus:
@@ -41,15 +42,12 @@ class ExitStatus:
 
 def get_clang_format_ignore_excludes(clang_format_file):
     excludes = []
-    try:
-        with io.open(clang_format_file, 'r', encoding='utf-8') as clang_ignore:
-            for pattern in clang_ignore:
-                pattern = pattern.rstrip()
-                if not pattern or pattern.startswith('#'):
-                    continue  # empty or comment
-                excludes.append(pattern)
-    except:
-        pass
+    with io.open(clang_format_file, 'r', encoding='utf-8') as clang_ignore:
+        for pattern in clang_ignore:
+            pattern = pattern.rstrip()
+            if not pattern or pattern.startswith('#'):
+                continue  # empty or comment
+            excludes.append(pattern)
     return excludes;
 
 def list_files(files, recursive=False, extensions=None, exclude=None):
@@ -312,7 +310,19 @@ def main():
 
     retcode = ExitStatus.SUCCESS
 
-    excludes = get_clang_format_ignore_excludes(DEFAULT_CLANG_FORMAT_IGNORE)
+    excludes = []
+    try:
+        excludes = get_clang_format_ignore_excludes(DEFAULT_CLANG_FORMAT_IGNORE)
+    except EnvironmentError as e:
+        if e.errno != errno.ENOENT:
+            print_trouble(
+                parser.prog,
+                "Opening {} failed: {}".format(
+                    DEFAULT_CLANG_FORMAT_IGNORE, e
+                ),
+                use_colors=colored_stderr,)
+            return ExitStatus.TROUBLE
+        pass
     excludes.extend(args.exclude)
 
     files = list_files(
