@@ -41,7 +41,7 @@ which also supports comments.
 
 An example configuration is available in this repo::
 
-  $ cat .clang-format-ignore                                                                      (master)*
+  $ cat .clang-format-ignore
   # ignore third_party code from clang-format checks
   src/third_party/*
 
