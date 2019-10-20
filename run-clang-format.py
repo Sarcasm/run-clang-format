@@ -42,7 +42,7 @@ class ExitStatus:
 def get_clang_format_ignore_excludes(clang_format_file):
     excludes = []
     try:
-        with open(clang_format_file, 'r') as clang_ignore:
+        with io.open(clang_format_file, 'r', encoding='utf-8') as clang_ignore:
             for pattern in clang_ignore.readlines():
                 pattern = pattern.rstrip()
                 if not pattern or pattern.startswith('#'):
