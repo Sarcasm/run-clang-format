@@ -31,6 +31,7 @@ except ImportError:
 
 
 DEFAULT_EXTENSIONS = 'c,h,C,H,cpp,hpp,cc,hh,c++,h++,cxx,hxx'
+DEFAULT_CLANG_FORMAT_IGNORE= '.clang-format-ignore'
 
 
 class ExitStatus:
@@ -270,10 +271,6 @@ def main():
         default=[],
         help='exclude paths matching the given glob-like pattern(s)'
         ' from recursive search')
-    parser.add_argument(
-        '--clang-format-ignore',
-        help='path to the .clang-format-ignore',
-        default='.clang-format-ignore')
 
     args = parser.parse_args()
 
@@ -315,7 +312,7 @@ def main():
 
     retcode = ExitStatus.SUCCESS
 
-    excludes = get_clang_format_ignore_excludes(args.clang_format_ignore)
+    excludes = get_clang_format_ignore_excludes(DEFAULT_CLANG_FORMAT_IGNORE)
     excludes.extend(args.exclude)
 
     files = list_files(
