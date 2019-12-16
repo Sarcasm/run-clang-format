@@ -90,14 +90,14 @@ def list_files(files, recursive=False, extensions=None, exclude=None):
     return out
 
 
-def make_diff(file, original, reformatted):
+def make_diff(file, original, reformatted, context_lines):
     return list(
         difflib.unified_diff(
             original,
             reformatted,
             fromfile='{}\t(original)'.format(file),
             tofile='{}\t(reformatted)'.format(file),
-            n=3))
+            n=context_lines))
 
 
 class DiffError(Exception):
@@ -186,7 +186,7 @@ def run_clang_format_diff(args, file):
             ),
             errs,
         )
-    return make_diff(file, original, outs), errs
+    return make_diff(file, original, outs, args.num_context_lines), errs
 
 
 def bold_red(s):
@@ -278,6 +278,13 @@ def main():
         default=[],
         help='exclude paths matching the given glob-like pattern(s)'
         ' from recursive search')
+    parser.add_argument(
+        '-n',
+        '--num-context-lines',
+        metavar='N',
+        type=int,
+        default=3,
+        help='number of context lines')
 
     args = parser.parse_args()
 
