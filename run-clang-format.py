@@ -345,6 +345,7 @@ def main():
         pool = multiprocessing.Pool(njobs)
         it = pool.imap_unordered(
             partial(run_clang_format_diff_wrapper, args), files)
+        pool.close()
     while True:
         try:
             outs, errs = next(it)
@@ -372,6 +373,7 @@ def main():
                 print_diff(outs, use_color=colored_stdout)
             if retcode == ExitStatus.SUCCESS:
                 retcode = ExitStatus.DIFF
+    pool.join()
     return retcode
 
 
