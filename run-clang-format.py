@@ -130,7 +130,15 @@ def run_clang_format_diff(args, file):
             original = f.readlines()
     except IOError as exc:
         raise DiffError(str(exc))
-    invocation = [args.clang_format_executable, file]
+    
+    if args.in_place:
+        invocation = [args.clang_format_executable, '-i', file]
+    else:
+        invocation = [args.clang_format_executable, file]
+
+    if args.dry_run:
+        print(" ".join(invocation))
+        return [], []
 
     # Use of utf-8 to decode the process output.
     #
@@ -186,6 +194,8 @@ def run_clang_format_diff(args, file):
             ),
             errs,
         )
+    if args.in_place:
+        return [], errs
     return make_diff(file, original, outs), errs
 
 
@@ -252,6 +262,16 @@ def main():
         '--recursive',
         action='store_true',
         help='run recursively over directories')
+    parser.add_argument(
+        '-d',
+        '--dry-run',
+        action='store_true',
+        help='just print the list of files')
+    parser.add_argument(
+        '-i',
+        '--in-place',
+        action='store_true',
+        help='format file instead of printing differences')
     parser.add_argument('files', metavar='file', nargs='+')
     parser.add_argument(
         '-q',
