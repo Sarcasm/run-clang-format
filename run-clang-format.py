@@ -393,7 +393,8 @@ def main():
                 print_diff(outs, use_color=colored_stdout)
             if retcode == ExitStatus.SUCCESS:
                 retcode = ExitStatus.DIFF
-    pool.join()
+    if pool:
+        pool.join()
     return retcode
 
 
