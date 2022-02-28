@@ -130,7 +130,7 @@ def run_clang_format_diff(args, file):
             original = f.readlines()
     except IOError as exc:
         raise DiffError(str(exc))
-    
+
     if args.in_place:
         invocation = [args.clang_format_executable, '-i', file]
     else:
@@ -356,6 +356,21 @@ def main():
 
     if not files:
         return
+
+    if args.style:
+        # if style has pattern "file:<path/to/file>", load style from that file
+        # TODO: This is supported by clang-format itself starting with version
+        # 14, so for versions >=14 the argument should not be processed here.
+        # See https://stackoverflow.com/a/70859277
+        if args.style.startswith("file:"):
+            import yaml
+
+            style_file = args.style[5:]
+            with open(style_file, "r") as f:
+                data = yaml.safe_load(f)
+                # reformat to single line and pass as style argument
+                args.style = yaml.dump(data, default_flow_style=True)
+                args.style = args.style.replace("\n", "")
 
     njobs = args.j
     if njobs == 0:
