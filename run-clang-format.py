@@ -86,7 +86,15 @@ def list_files(files, recursive=False, extensions=None, exclude=None):
                     if ext in extensions:
                         out.append(f)
         else:
-            out.append(file)
+            isAddFile = True
+
+            for pattern in exclude:
+                if fnmatch.fnmatch(file, pattern):
+                    isAddFile = False
+                    break
+
+            if isAddFile:
+                out.append(file)
     return out
 
 
@@ -130,7 +138,7 @@ def run_clang_format_diff(args, file):
             original = f.readlines()
     except IOError as exc:
         raise DiffError(str(exc))
-    
+
     if args.in_place:
         invocation = [args.clang_format_executable, '-i', file]
     else:
